@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Moon Observation Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1526; --surface:#141f38; --line:#2a3a5c;
+    --ink:#e9e6da; --ink-dim:#8f9bb8;
+    --gold:#e6c07a; --blue:#7fb2d9; --red:#c96a5a; --green:#8fbf9f;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    box-sizing:border-box;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px); color-scheme:dark;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Manrope',system-ui,sans-serif; -webkit-font-smoothing:antialiased;}
+  h1,h2,.serif{font-family:'Spectral',Georgia,serif;}
+  .wrap{max-width:760px; margin:0 auto; padding:40px 24px 80px;}
+  header{margin-bottom:32px;}
+  header h1{font-size:2rem; font-weight:500; margin:0 0 6px;}
+  header p{margin:0; color:var(--ink-dim); font-size:0.95rem; max-width:56ch; line-height:1.5;}
+
+  .controls{display:flex; flex-wrap:wrap; gap:14px 20px; align-items:end; padding:18px 20px; background:var(--surface); border:1px solid var(--line); border-radius:10px; margin-bottom:30px;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field label{font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-dim);}
+  .field input, .field select{background:#0a1122; border:1px solid var(--line); color:var(--ink); padding:7px 9px; border-radius:6px; font-family:'Manrope',sans-serif; font-size:0.9rem; width:130px;}
+  .field input:focus, .field select:focus{outline:2px solid var(--gold); outline-offset:1px;}
+  .controls button{background:var(--gold); color:#231a08; border:none; border-radius:6px; padding:9px 16px; font-weight:600; cursor:pointer; font-size:0.85rem;}
+  .controls button:hover{filter:brightness(1.08);}
+  .controls button.ghost{background:none; border:1px solid var(--line); color:var(--ink);}
+  .controls .status{font-size:0.78rem; color:var(--ink-dim);}
+
+  .chart-card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:22px 20px 14px; margin-bottom:28px;}
+  .chart-card h2{font-size:1.1rem; font-weight:500; margin:0 0 4px;}
+  .chart-card .sub{color:var(--ink-dim); font-size:0.82rem; margin-bottom:10px;}
+  svg{width:100%; height:auto; display:block; overflow:visible;}
+  .axis-label{fill:var(--ink-dim); font-size:10px; font-family:'Manrope',sans-serif;}
+  .panel-label{fill:var(--ink); font-size:11px; font-weight:600; font-family:'Manrope',sans-serif;}
+  .legend{display:flex; gap:18px; margin-top:10px; font-size:0.78rem; color:var(--ink-dim); flex-wrap:wrap;}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .swatch{width:12px; height:3px; border-radius:2px; display:inline-block;}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); border-top:1px solid var(--line);}
+  .stat{padding:16px 4px; border-bottom:1px solid var(--line); border-right:1px solid var(--line);}
+  .stat:last-child{border-right:none;}
+  .stat .label{font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-dim); margin-bottom:6px;}
+  .stat .value{font-size:1.35rem; font-family:'Spectral',serif; color:var(--gold);}
+  .stat .value small{font-size:0.65rem; color:var(--ink-dim); font-family:'Manrope',sans-serif; display:block; margin-top:2px;}
+
+  .section-heading{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px; margin:44px 0 14px;}
+  .section-heading h2{font-size:1.3rem; font-weight:500; margin:0;}
+  .section-heading p{margin:2px 0 0; color:var(--ink-dim); font-size:0.85rem;}
+
+  .trend-panel{margin-bottom:2px;}
+  .result-row{display:grid; grid-template-columns:1.3fr 1.4fr 0.8fr 0.9fr 0.8fr; gap:8px; padding:10px 4px; border-bottom:1px solid var(--line); font-size:0.85rem; align-items:center;}
+  .result-row.head{color:var(--ink-dim); font-size:0.72rem; text-transform:uppercase; letter-spacing:.03em;}
+  .result-row .date{color:var(--gold); font-family:'Spectral',serif;}
+  .field input[type="checkbox"]{width:auto; height:auto; background:none; border:none; padding:0; margin:0; border-radius:0; accent-color:var(--gold);}
+  #dirChecks label{display:inline-flex; align-items:center; gap:5px; text-transform:none; font-size:0.85rem; color:var(--ink);}
+  footer{margin-top:30px; color:var(--ink-dim); font-size:0.78rem; line-height:1.6; max-width:60ch;}
+
+  /* ---- responsive: phones / narrow windows ---- */
+  @media (max-width:640px){
+    .wrap{padding:24px 14px 60px;}
+    header h1{font-size:1.6rem;}
+    .controls{padding:14px; gap:10px 12px;}
+    .field{flex:1 1 42%; min-width:100px;}
+    .field input, .field select{width:100%;}
+    .chart-card{padding:16px 12px 12px;}
+    .result-row.head{display:none;}
+    .result-row{display:flex; flex-direction:column; gap:3px; padding:12px 6px;}
+    .result-row > div{display:flex; gap:8px; align-items:baseline; font-size:0.85rem;}
+    .result-row > div::before{content:attr(data-label); color:var(--ink-dim); font-size:0.66rem; text-transform:uppercase; letter-spacing:.03em; min-width:88px; flex-shrink:0;}
+    .result-row .date{font-size:1rem;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Moon Observation Planner</h1>
+    <p>Altitude, direction, illumination, and optical libration for the Moon — tonight or across the year — computed entirely in your browser.</p>
+  </header>
+
+  <div class="controls">
+    <div class="field" style="min-width:200px;"><label for="citySearch">City</label><input id="citySearch" list="cityList" placeholder="e.g. Denver, CO" autocomplete="off"></div>
+    <datalist id="cityList"></datalist>
+    <div class="field"><label for="lat">Latitude</label><input id="lat" type="number" step="0.0001" placeholder="e.g. 41.0154"></div>
+    <div class="field"><label for="lng">Longitude</label><input id="lng" type="number" step="0.0001" placeholder="e.g. -73.8656"></div>
+    <div class="field"><label for="date">Date</label><input id="date" type="date"></div>
+    <button id="go">Update</button>
+    <button id="locate" class="ghost">Use my location</button>
+    <span class="status" id="locStatus"></span>
+  </div>
+
+  <div class="chart-card">
+    <h2 class="serif">Moon tonight</h2>
+    <div class="sub" id="chartSub">Local time, midnight to midnight</div>
+    <svg id="chart" viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--blue)"></i>Altitude (left axis)</span>
+      <span><i class="swatch" style="background:#c9a0dc"></i>Direction (right axis, dashed)</span>
+      <span><i class="swatch" style="background:#3a5580"></i>Daylight</span>
+      <span><i class="swatch" style="background:#1e2c4d"></i>Twilight</span>
+      <span><i class="swatch" style="background:#0a0f1c"></i>Astronomical night</span>
+      <span><i class="swatch" style="background:var(--red)"></i>Horizon</span>
+    </div>
+  </div>
+
+  <div class="chart-card" style="padding:0;">
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="section-heading">
+    <div>
+      <h2 class="serif">Moon in the future</h2>
+      <p>How altitude, direction, illumination, and timing shift day to day.</p>
+    </div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap;">
+      <div class="field"><label for="range">Range</label>
+        <select id="range">
+          <option value="7">Next 7 days</option>
+          <option value="14">Next 14 days</option>
+          <option value="30" selected>Next 30 days</option>
+          <option value="60">Next 60 days</option>
+          <option value="90">Next 90 days</option>
+          <option value="365">Next 12 months</option>
+        </select>
+      </div>
+      <div class="field"><label for="dirTimeInput">Direction at</label><input id="dirTimeInput" type="time" value="21:00"></div>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div id="trendReadout" style="font-size:0.85rem; color:var(--ink); margin-bottom:10px; min-height:1.2em;">Hover any chart for exact values.</div>
+    <div class="trend-panel"><svg id="tIllum" viewBox="0 0 700 100" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="trend-panel"><svg id="tAlt" viewBox="0 0 700 100" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="trend-panel"><svg id="tTime" viewBox="0 0 700 100" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="trend-panel"><svg id="tAz" viewBox="0 0 700 110" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="status" id="trendStatus" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="section-heading">
+    <div>
+      <h2 class="serif">Moon visibility calculator</h2>
+      <p>Find upcoming nights that match your shooting criteria.</p>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="controls" style="margin-bottom:18px;">
+      <div class="field"><label for="calcRange">Search window</label>
+        <select id="calcRange">
+          <option value="30">Next 30 days</option>
+          <option value="60">Next 60 days</option>
+          <option value="90" selected>Next 90 days</option>
+          <option value="365">Next 12 months</option>
+        </select>
+      </div>
+      <div class="field"><label for="calcAlt">Min. altitude (°)</label><input id="calcAlt" type="number" value="20" min="0" max="90" step="1"></div>
+      <div class="field"><label>Illumination</label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="calcIllumMin" style="width:70px;"></select><span style="color:var(--ink-dim); font-size:0.85rem;">to</span><select id="calcIllumMax" style="width:70px;"></select>
+        </div>
+      </div>
+      <div class="field"><label for="calcDur">Min. duration (min)</label><input id="calcDur" type="number" value="0" min="0" step="15"></div>
+      <div class="field"><label for="calcDay">Nights</label>
+        <select id="calcDay">
+          <option value="any">Any night</option>
+          <option value="weekend">Weekend nights (Fri/Sat)</option>
+          <option value="weekday">Weeknights (Sun–Thu)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:16px;">
+      <label>Direction</label>
+      <div id="dirChecks" style="display:flex; gap:12px; flex-wrap:wrap; font-size:0.85rem; margin-top:4px;">
+        <label style="display:flex; gap:4px; align-items:center;"><input type="checkbox" id="dirAny" checked>Any</label>
+      </div>
+    </div>
+    <div class="controls" style="margin-bottom:16px; padding:0; border:none; background:none;">
+      <div class="field"><label for="calcTimeMode">Time of night</label>
+        <select id="calcTimeMode">
+          <option value="afterSunset" selected>After sunset (Sun below horizon)</option>
+          <option value="afterDark">After dark (astronomical night)</option>
+          <option value="withinHours">Within N hours after sunset</option>
+          <option value="window">Custom window (dusk → chosen time)</option>
+          <option value="any">Any time of day</option>
+        </select>
+      </div>
+      <div class="field" id="hoursAfterWrap" style="display:none;"><label for="calcHours">Hours after sunset</label><input id="calcHours" type="number" value="3" min="0.5" max="12" step="0.5"></div>
+      <div class="field" id="windowWrap" style="display:none;">
+        <label>Window</label>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:0.85rem;">
+          <span style="color:var(--ink-dim);">From</span>
+          <select id="calcFromAnchor">
+            <option value="sunset">Sunset</option>
+            <option value="dusk" selected>Astro. dusk</option>
+            <option value="time">Time</option>
+          </select>
+          <input id="calcFromTime" type="time" value="21:00" style="display:none;">
+          <span style="color:var(--ink-dim);">until</span>
+          <select id="calcUntilAnchor">
+            <option value="time" selected>Time</option>
+            <option value="dawn">Astro. dawn</option>
+            <option value="sunrise">Sunrise</option>
+          </select>
+          <input id="calcUntilTime" type="time" value="22:30">
+        </div>
+      </div>
+    </div>
+    <button id="calcGo">Find matching nights</button>
+    <div class="status" id="calcStatus" style="margin-top:12px;"></div>
+    <div id="calcResults"></div>
+  </div>
+
+  <footer>
+    Positions use a compact analytic lunar/solar model (accurate to roughly a degree — fine for planning, not precision pointing). Libration is the optical component only. Longitude is East-positive; "Use my location" needs your browser's location permission and works only when this page is loaded over HTTPS or from your own computer.
+  </footer>
+</div>
+
+<script>
+const rad = Math.PI/180;
+const dayMs = 864e5, J1970 = 2440588, J2000 = 2451545;
+const toJulian = d => d.valueOf()/dayMs - 0.5 + J1970;
+const toDays = d => toJulian(d) - J2000;
+const e = rad*23.4397;
+const raFn = (l,b) => Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(b)*Math.sin(e), Math.cos(l));
+const decFn = (l,b) => Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l));
+const azFn = (H,phi,d) => (Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(phi)-Math.tan(d)*Math.cos(phi))/rad+180);
+const altFn = (H,phi,d) => Math.asin(Math.sin(phi)*Math.sin(d)+Math.cos(phi)*Math.cos(d)*Math.cos(H))/rad;
+const sidereal = (d,lw) => rad*(280.16+360.9856235*d)-lw;
+
+function sunCoords(d){
+  const M = rad*(357.5291+0.98560028*d);
+  const C = rad*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M));
+  const L = M+C+rad*102.9372+Math.PI;
+  return {dec:decFn(L,0), ra:raFn(L,0)};
+}
+function moonCoords(d){
+  const L = rad*(218.316+13.176396*d);
+  const M = rad*(134.963+13.064993*d);
+  const F = rad*(93.272+13.229350*d);
+  const l = L+rad*6.289*Math.sin(M);
+  const b = rad*5.128*Math.sin(F);
+  const dist = 385001-20905*Math.cos(M);
+  return {ra:raFn(l,b), dec:decFn(l,b), dist, l, b, F};
+}
+function bodyPos(coordFn, date, lat, lng){
+  const d = toDays(date), lw = rad*(-lng), phi = rad*lat;
+  const c = coordFn(d);
+  const H = sidereal(d,lw)-c.ra;
+  return {altitude: altFn(H,phi,c.dec), azimuth: azFn(H,phi,c.dec), c};
+}
+const moonPos = (date,lat,lng) => bodyPos(moonCoords,date,lat,lng);
+const sunPos = (date,lat,lng) => bodyPos(sunCoords,date,lat,lng);
+
+function illumination(date){
+  const d = toDays(date), s = sunCoords(d), m = moonCoords(d), sdist = 149598000;
+  const phi = Math.acos(Math.sin(s.dec)*Math.sin(m.dec)+Math.cos(s.dec)*Math.cos(m.dec)*Math.cos(s.ra-m.ra));
+  const inc = Math.atan2(sdist*Math.sin(phi), m.dist-sdist*Math.cos(phi));
+  const angle = Math.atan2(Math.cos(s.dec)*Math.sin(s.ra-m.ra), Math.sin(s.dec)*Math.cos(m.dec)-Math.cos(s.dec)*Math.sin(m.dec)*Math.cos(s.ra-m.ra));
+  return {fraction:(1+Math.cos(inc))/2, phase:0.5+0.5*inc*(angle<0?-1:1)/Math.PI, dist:m.dist};
+}
+function libration(date){
+  const d = toDays(date), T = d/36525, c = moonCoords(d);
+  const Omega = rad*(125.0445-1934.1363*T), I = rad*1.54242;
+  const W = c.l-Omega;
+  const A = Math.atan2(Math.sin(W)*Math.cos(c.b)*Math.cos(I)-Math.sin(c.b)*Math.sin(I), Math.cos(W)*Math.cos(c.b));
+  let lon = (A-c.F)/rad;
+  while(lon>180) lon-=360; while(lon<-180) lon+=360;
+  const lat = Math.asin(-Math.sin(W)*Math.cos(c.b)*Math.sin(I)-Math.sin(c.b)*Math.cos(I))/rad;
+  return {lon, lat};
+}
+function phaseName(p){
+  const names = ['New Moon','Waxing Crescent','First Quarter','Waxing Gibbous','Full Moon','Waning Gibbous','Last Quarter','Waning Crescent'];
+  return names[Math.round(p*8)%8];
+}
+function compass(az){
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(((az%360)+360)%360/22.5)%16];
+}
+function fmtTime(d){ return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+function fmtHour(d){ return d.getHours()+d.getMinutes()/60; }
+function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+
+function findEvents(dayStart, lat, lng){
+  let prev = moonPos(dayStart,lat,lng).altitude, events = [], best=null, bestAlt=-999, bestAz=0;
+  for(let m=1; m<=24*60; m+=5){
+    const t = new Date(dayStart.getTime()+m*60000);
+    const p = moonPos(t, lat, lng);
+    if(prev<0 && p.altitude>=0) events.push({type:'rise', time:t, az:p.azimuth});
+    if(prev>=0 && p.altitude<0) events.push({type:'set', time:t, az:p.azimuth});
+    if(p.altitude>bestAlt){bestAlt=p.altitude; best=t; bestAz=p.azimuth;}
+    prev = p.altitude;
+  }
+  return {events, transit:best, transitAlt:bestAlt, transitAz:bestAz};
+}
+
+// ---- hover tooltip for the nightly chart ----
+function attachTooltip(nd){
+  const svg = document.getElementById('chart');
+  const overlay = document.getElementById('chartOverlay');
+  const tipLine = document.getElementById('tipLine');
+  const tipA = document.getElementById('tipDotAlt');
+  const tipZ = document.getElementById('tipDotAz');
+  const tipText = document.getElementById('tipText');
+  function indexFromEvent(clientX, clientY){
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+    let i = Math.round((loc.x - nd.padL) / (nd.W-nd.padL-nd.padR) * nd.N);
+    return Math.max(0, Math.min(nd.N, i));
+  }
+  function show(i){
+    const cx = nd.x(i);
+    tipLine.setAttribute('x1',cx); tipLine.setAttribute('x2',cx); tipLine.setAttribute('opacity',1);
+    tipA.setAttribute('cx',cx); tipA.setAttribute('cy', nd.y(nd.alts[i])); tipA.setAttribute('opacity',1);
+    tipZ.setAttribute('cx',cx); tipZ.setAttribute('cy', nd.y2(nd.azs[i])); tipZ.setAttribute('opacity',1);
+    tipText.textContent = `${fmtTime(nd.times[i])}  ·  Alt ${nd.alts[i].toFixed(0)}°  ·  ${compass(nd.azs[i])} ${nd.azs[i].toFixed(0)}°`;
+  }
+  function hide(){ [tipLine,tipA,tipZ].forEach(el=>el.setAttribute('opacity',0)); tipText.textContent=''; }
+  overlay.addEventListener('mousemove', ev => show(indexFromEvent(ev.clientX, ev.clientY)));
+  overlay.addEventListener('mouseleave', hide);
+  overlay.addEventListener('touchstart', ev => { show(indexFromEvent(ev.touches[0].clientX, ev.touches[0].clientY)); }, {passive:true});
+  overlay.addEventListener('touchmove', ev => { show(indexFromEvent(ev.touches[0].clientX, ev.touches[0].clientY)); ev.preventDefault(); }, {passive:false});
+}
+
+// ---- single-night chart ----
+function renderNight(lat,lng,dateInput){
+  const nightStart = new Date(dateInput+'T12:00:00'); // noon-to-noon window: captures the full night through the next morning
+  const now = new Date();
+  const isToday = now>=nightStart && now<new Date(nightStart.getTime()+24*3600000);
+
+  const nightEnd = new Date(nightStart.getTime()+24*3600000);
+  document.getElementById('chartSub').textContent =
+    nightStart.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'}) + ' evening → ' +
+    nightEnd.toLocaleDateString(undefined,{month:'long', day:'numeric'}) + ' morning' +
+    `  ·  lat ${lat.toFixed(3)}, lng ${lng.toFixed(3)}`;
+
+  const N = 96, moonAlts=[], moonAzs=[], sunAlts=[], sampleTimes=[];
+  for(let i=0;i<=N;i++){
+    const t = new Date(nightStart.getTime()+i*15*60000);
+    const p = moonPos(t,lat,lng);
+    moonAlts.push(p.altitude);
+    moonAzs.push(p.azimuth);
+    sunAlts.push(sunPos(t,lat,lng).altitude);
+    sampleTimes.push(t);
+  }
+
+  const chartEl = document.getElementById('chart');
+  const W = Math.max(300, Math.round(chartEl.clientWidth || 700)), H=300, padL=36,padR=30,padT=10,padB=26;
+  chartEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const x = i => padL + (W-padL-padR)*i/N;
+  const y = a => padT + (H-padT-padB)*(1-(a+90)/180);
+  const y2 = az => padT + (H-padT-padB)*(1-az/360);
+  const horizonY = y(0);
+
+  let daylightRects='';
+  for(let i=0;i<N;i++){
+    const sa = sunAlts[i];
+    const fill = sa>-6 ? '#3a5580' : sa>-18 ? '#1e2c4d' : '#0a0f1c';
+    daylightRects += `<rect x="${x(i)}" y="${padT}" width="${(x(i+1)-x(i)+0.6).toFixed(1)}" height="${H-padT-padB}" fill="${fill}"></rect>`;
+  }
+  const moonPath = moonAlts.map((a,i)=> (i===0?'M':'L')+x(i).toFixed(1)+','+y(a).toFixed(1)).join(' ');
+  let azPath='', prevAz=null;
+  moonAzs.forEach((az,i)=>{
+    const cx=x(i), cy=y2(az);
+    if(prevAz===null || Math.abs(az-prevAz)>180) azPath += (azPath?' ':'')+'M'+cx.toFixed(1)+','+cy.toFixed(1);
+    else azPath += ' L'+cx.toFixed(1)+','+cy.toFixed(1);
+    prevAz=az;
+  });
+
+  let nowLine='';
+  if(isToday){
+    const xi = (now-nightStart)/60000/15;
+    nowLine = `<line x1="${x(xi).toFixed(1)}" y1="${padT}" x2="${x(xi).toFixed(1)}" y2="${H-padB}" stroke="#c96a5a" stroke-width="1" stroke-dasharray="3,3"/>`;
+  }
+
+  let ticks='';
+  for(let h=0;h<=24;h+=3) ticks += `<text class="axis-label" x="${x(h*4).toFixed(1)}" y="${H-padB+16}" text-anchor="middle">${String((12+h)%24).padStart(2,'0')}:00</text>`;
+  [-90,-45,0,45,90].forEach(a=> ticks += `<text class="axis-label" x="${padL-8}" y="${(y(a)+3).toFixed(1)}" text-anchor="end">${a}°</text>`);
+  [['N',0],['E',90],['S',180],['W',270],['N',360]].forEach(([lab,az])=> ticks += `<text class="axis-label" x="${W-padR+8}" y="${(y2(az)+3).toFixed(1)}" text-anchor="start">${lab}</text>`);
+
+  document.getElementById('chart').innerHTML = `${daylightRects}
+    <line x1="${padL}" y1="${horizonY}" x2="${W-padR}" y2="${horizonY}" stroke="#c96a5a" stroke-width="1.4" stroke-dasharray="5,4"/>
+    <path d="${azPath}" fill="none" stroke="#c9a0dc" stroke-width="1.6" stroke-dasharray="4,3"/>
+    <path d="${moonPath}" fill="none" stroke="#7fb2d9" stroke-width="2.4"/>
+    ${nowLine}${ticks}
+    <line id="tipLine" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#e9e6da" stroke-width="1" stroke-dasharray="2,2" opacity="0"/>
+    <circle id="tipDotAlt" r="4" fill="#7fb2d9" opacity="0"/>
+    <circle id="tipDotAz" r="4" fill="#c9a0dc" opacity="0"/>
+    <text id="tipText" x="${W-padR}" y="${padT+2}" text-anchor="end" style="font-size:12px; fill:#e9e6da; font-family:'Manrope',sans-serif;"></text>
+    <rect id="chartOverlay" x="${padL}" y="${padT}" width="${W-padL-padR}" height="${H-padT-padB}" fill="transparent" style="cursor:crosshair;"/>`;
+
+  attachTooltip({x,y,y2,N,padL,padR,padT,padB,W,H,alts:moonAlts,azs:moonAzs,times:sampleTimes});
+
+  const nowMoment = isToday ? now : new Date(nightStart.getTime()+9*3600000);
+  const illum = illumination(nowMoment);
+  const lib = libration(nowMoment);
+  const rs = findEvents(nightStart, lat, lng);
+  const nowPos = moonPos(nowMoment, lat, lng);
+
+  const riseE = rs.events.find(ev=>ev.type==='rise');
+  const setE = rs.events.find(ev=>ev.type==='set');
+
+  const stats = [
+    ['Illumination', (illum.fraction*100).toFixed(0)+'%', phaseName(illum.phase)],
+    ['Distance', Math.round(illum.dist).toLocaleString()+' km', illum.dist<378000?'Near perigee':illum.dist>404000?'Near apogee':''],
+    ['Moonrise', riseE?fmtTime(riseE.time):'—', riseE?'rising in the '+compass(riseE.az):'does not rise'],
+    ['Transit (peak alt.)', fmtTime(rs.transit)+`, ${rs.transitAlt.toFixed(0)}°`, 'due '+compass(rs.transitAz)],
+    ['Moonset', setE?fmtTime(setE.time):'—', setE?'setting in the '+compass(setE.az):'does not set'],
+    ['Libration (lon / lat)', lib.lon.toFixed(1)+'° / '+lib.lat.toFixed(1)+'°', lib.lon>0?'Mare Crisium side visible':'Oceanus Procellarum side visible'],
+  ];
+  document.getElementById('stats').innerHTML = stats.map(([l,v,s])=>
+    `<div class="stat"><div class="label">${l}</div><div class="value">${v}${s?`<small>${s}</small>`:''}</div></div>`
+  ).join('');
+}
+
+// ---- generic trend line panel with hover tooltip ----
+function drawTrendPanel(svgId, label, vals, {yMin,yMax,color,wrap,fmtY,unitTicks}, days, labelEvery){
+  const svgEl = document.getElementById(svgId);
+  const W = Math.max(300, Math.round(svgEl.clientWidth || 700)), H=svgId==='tAz'?110:100,padL=42,padR=10,padT=18,padB=svgId==='tIllum'?6:20;
+  svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const N=vals.length;
+  const x = i => padL + (W-padL-padR)*i/(N-1);
+  const y = v => padT + (H-padT-padB)*(1-(v-yMin)/(yMax-yMin));
+  let d='', prev=null;
+  vals.forEach((v,i)=>{
+    const cx=x(i), cy=y(v);
+    if(prev===null || (wrap && Math.abs(v-prev)>wrap)) d += (d?' ':'')+'M'+cx.toFixed(1)+','+cy.toFixed(1);
+    else d += ' L'+cx.toFixed(1)+','+cy.toFixed(1);
+    prev=v;
+  });
+  let grid='', yticks = unitTicks || [yMin, (yMin+yMax)/2, yMax];
+  yticks.forEach(v=>{
+    grid += `<line x1="${padL}" y1="${y(v).toFixed(1)}" x2="${W-padR}" y2="${y(v).toFixed(1)}" stroke="#22304d" stroke-width="1"/>`;
+    grid += `<text class="axis-label" x="${padL-6}" y="${(y(v)+3).toFixed(1)}" text-anchor="end">${fmtY?fmtY(v):v}</text>`;
+  });
+  let xticks='';
+  if(padB>10){
+    for(let i=0;i<N;i+=labelEvery) xticks += `<text class="axis-label" x="${x(i).toFixed(1)}" y="${H-6}" text-anchor="middle">${days[i]}</text>`;
+  }
+  document.getElementById(svgId).innerHTML = `
+    <text class="panel-label" x="${padL}" y="12">${label}</text>
+    ${grid}<path d="${d}" fill="none" stroke="${color}" stroke-width="2"/>${xticks}
+    <line id="${svgId}_tipLine" x1="0" y1="${padT}" x2="0" y2="${H-padB}" stroke="#e9e6da" stroke-width="1" stroke-dasharray="2,2" opacity="0"/>
+    <circle id="${svgId}_tipDot" r="3.5" fill="${color}" opacity="0"/>
+    <rect id="${svgId}_overlay" x="${padL}" y="${padT}" width="${W-padL-padR}" height="${H-padT-padB}" fill="transparent" style="cursor:crosshair;"/>`;
+  return {x,y,padL,padR,W,H};
+}
+
+// ---- one synced tooltip across all four "Moon in the future" panels ----
+function attachSyncedTrendTooltip(panelIds, geoms, data, fullDates, chosenTimeLabel){
+  const timeTip = v => { const hh=Math.floor(v), mm=Math.round((v-hh)*60); return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); };
+  const readout = document.getElementById('trendReadout');
+  const valueFor = { tIllum:data.illum, tAlt:data.alt, tTime:data.time, tAz:data.az };
+
+  function highlight(i){
+    panelIds.forEach(id=>{
+      const g = geoms[id], v = valueFor[id][i];
+      const cx = g.x(i), cy = g.y(v);
+      document.getElementById(id+'_tipLine').setAttribute('x1',cx);
+      document.getElementById(id+'_tipLine').setAttribute('x2',cx);
+      document.getElementById(id+'_tipLine').setAttribute('opacity',1);
+      document.getElementById(id+'_tipDot').setAttribute('cx',cx);
+      document.getElementById(id+'_tipDot').setAttribute('cy',cy);
+      document.getElementById(id+'_tipDot').setAttribute('opacity',1);
+    });
+    const dateStr = fullDates[i].toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+    readout.textContent = `${dateStr}  ·  Illum ${data.illum[i].toFixed(0)}%  ·  Peak alt ${data.alt[i].toFixed(0)}°  ·  Transit ${timeTip(data.time[i])}  ·  Dir (${chosenTimeLabel}) ${compass(data.az[i])} ${data.az[i].toFixed(0)}°`;
+  }
+  function hide(){
+    panelIds.forEach(id=>{
+      document.getElementById(id+'_tipLine').setAttribute('opacity',0);
+      document.getElementById(id+'_tipDot').setAttribute('opacity',0);
+    });
+    readout.textContent = 'Hover any chart for exact values.';
+  }
+  panelIds.forEach(id=>{
+    const svg = document.getElementById(id);
+    const overlay = document.getElementById(id+'_overlay');
+    const g = geoms[id];
+    function idx(clientX,clientY){
+      const pt = svg.createSVGPoint(); pt.x=clientX; pt.y=clientY;
+      const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+      let i = Math.round((loc.x-g.padL)/(g.W-g.padL-g.padR)*(fullDates.length-1));
+      return Math.max(0, Math.min(fullDates.length-1, i));
+    }
+    overlay.addEventListener('mousemove', ev=>highlight(idx(ev.clientX,ev.clientY)));
+    overlay.addEventListener('mouseleave', hide);
+    overlay.addEventListener('touchstart', ev=>highlight(idx(ev.touches[0].clientX,ev.touches[0].clientY)), {passive:true});
+    overlay.addEventListener('touchmove', ev=>{highlight(idx(ev.touches[0].clientX,ev.touches[0].clientY)); ev.preventDefault();}, {passive:false});
+  });
+}
+
+// interprets an HH:MM time input as a clock time attached to a given night:
+// hours 12–23 fall on the evening of dayStart; hours 0–11 fall on the morning after.
+function timeOnNight(dayStart, hhmm){
+  const [hh,mm] = hhmm.split(':').map(Number);
+  const dayOffset = hh<12 ? 1 : 0;
+  return new Date(dayStart.getTime() + (dayOffset*24+hh)*3600000 + mm*60000);
+}
+
+function renderTrends(lat,lng,startStr,rangeDays){
+  const start = new Date(startStr+'T00:00:00');
+  const dirTimeStr = document.getElementById('dirTimeInput').value || '21:00';
+  const illumArr=[], altArr=[], timeArr=[], azArr=[], labels=[], fullDates=[];
+  for(let i=0;i<rangeDays;i++){
+    const dayStart = new Date(start.getTime()+i*dayMs);
+    let bestAlt=-999, bestT=dayStart;
+    for(let m=0;m<24*60;m+=20){
+      const t = new Date(dayStart.getTime()+m*60000);
+      const p = moonPos(t,lat,lng);
+      if(p.altitude>bestAlt){bestAlt=p.altitude; bestT=t;}
+    }
+    illumArr.push(illumination(bestT).fraction*100);
+    altArr.push(bestAlt);
+    timeArr.push(fmtHour(bestT));
+    azArr.push(moonPos(timeOnNight(dayStart,dirTimeStr), lat, lng).azimuth);
+    labels.push(rangeDays>90 ? dayStart.toLocaleDateString(undefined,{month:'short'}) : dayStart.toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+    fullDates.push(dayStart);
+  }
+  const labelEvery = rangeDays>90 ? 30 : rangeDays>30 ? 10 : rangeDays>14 ? 5 : rangeDays>7 ? 2 : 1;
+  const [dh,dm] = dirTimeStr.split(':').map(Number);
+  const dirLabel = (dh%12===0?12:dh%12)+':'+String(dm).padStart(2,'0')+(dh<12?'am':'pm');
+
+  const geoms = {
+    tIllum: drawTrendPanel('tIllum','Illumination (%)', illumArr, {yMin:0,yMax:100,color:'#e6c07a',fmtY:v=>v+'%'}, labels, labelEvery),
+    tAlt:   drawTrendPanel('tAlt','Peak altitude of the night (°)', altArr, {yMin:0,yMax:90,color:'#7fb2d9',fmtY:v=>v+'°'}, labels, labelEvery),
+    tTime:  drawTrendPanel('tTime','Time of peak altitude (transit)', timeArr, {yMin:0,yMax:24,color:'#8fbf9f',wrap:12,fmtY:v=>String(Math.round(v)).padStart(2,'0')+':00'}, labels, labelEvery),
+    tAz:    drawTrendPanel('tAz',`Direction at ${dirLabel}`, azArr, {yMin:0,yMax:360,color:'#c9a0dc',wrap:180,fmtY:v=>compass(v),unitTicks:[0,90,180,270,360]}, labels, labelEvery),
+  };
+  attachSyncedTrendTooltip(['tIllum','tAlt','tTime','tAz'], geoms, {illum:illumArr, alt:altArr, time:timeArr, az:azArr}, fullDates, dirLabel);
+  document.getElementById('trendStatus').textContent = `Showing ${rangeDays} days from ${start.toLocaleDateString()} — altitude/illumination/time at the Moon's highest point each night; direction at your chosen time (${dirLabel}). Hover any chart for exact values.`;
+}
+
+
+function compass8(az){
+  const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+  return dirs[Math.round(((az%360)+360)%360/45)%8];
+}
+
+// ---- city search (offline list — no network calls, so it's a curated set, not exhaustive) ----
+const CITIES = [["New York, NY, USA",40.71,-74.01],["Los Angeles, CA, USA",34.05,-118.24],["Chicago, IL, USA",41.88,-87.63],["Houston, TX, USA",29.76,-95.37],["Phoenix, AZ, USA",33.45,-112.07],["Philadelphia, PA, USA",39.95,-75.17],["San Antonio, TX, USA",29.42,-98.49],["San Diego, CA, USA",32.72,-117.16],["Dallas, TX, USA",32.78,-96.80],["San Jose, CA, USA",37.34,-121.89],["Austin, TX, USA",30.27,-97.74],["Jacksonville, FL, USA",30.33,-81.66],["San Francisco, CA, USA",37.77,-122.42],["Columbus, OH, USA",39.96,-83.00],["Charlotte, NC, USA",35.23,-80.84],["Indianapolis, IN, USA",39.77,-86.16],["Seattle, WA, USA",47.61,-122.33],["Denver, CO, USA",39.74,-104.99],["Washington, DC, USA",38.91,-77.04],["Boston, MA, USA",42.36,-71.06],["Nashville, TN, USA",36.16,-86.78],["Portland, OR, USA",45.52,-122.68],["Las Vegas, NV, USA",36.17,-115.14],["Detroit, MI, USA",42.33,-83.05],["Memphis, TN, USA",35.15,-90.05],["Louisville, KY, USA",38.25,-85.76],["Baltimore, MD, USA",39.29,-76.61],["Milwaukee, WI, USA",43.04,-87.91],["Albuquerque, NM, USA",35.08,-106.65],["Tucson, AZ, USA",32.22,-110.93],["Fresno, CA, USA",36.75,-119.77],["Sacramento, CA, USA",38.58,-121.49],["Kansas City, MO, USA",39.10,-94.58],["Atlanta, GA, USA",33.75,-84.39],["Miami, FL, USA",25.76,-80.19],["Raleigh, NC, USA",35.78,-78.64],["Omaha, NE, USA",41.26,-95.94],["Minneapolis, MN, USA",44.98,-93.27],["Tampa, FL, USA",27.95,-82.46],["New Orleans, LA, USA",29.95,-90.07],["Cleveland, OH, USA",41.50,-81.69],["Honolulu, HI, USA",21.31,-157.86],["Anchorage, AK, USA",61.22,-149.90],["Salt Lake City, UT, USA",40.76,-111.89],["Albany, NY, USA",42.65,-73.75],["Hartford, CT, USA",41.76,-72.67],["Providence, RI, USA",41.82,-71.41],["Richmond, VA, USA",37.54,-77.44],["Pittsburgh, PA, USA",40.44,-79.99],["Cincinnati, OH, USA",39.10,-84.51],["St. Louis, MO, USA",38.63,-90.20],["Buffalo, NY, USA",42.89,-78.88],["Rochester, NY, USA",43.16,-77.61],["Syracuse, NY, USA",43.05,-76.15],["Orlando, FL, USA",28.54,-81.38],["Charleston, SC, USA",32.78,-79.93],["Savannah, GA, USA",32.08,-81.09],["Boise, ID, USA",43.62,-116.20],["Spokane, WA, USA",47.66,-117.43],["Reno, NV, USA",39.53,-119.81],["Colorado Springs, CO, USA",38.83,-104.82],["Tulsa, OK, USA",36.15,-95.99],["Oklahoma City, OK, USA",35.47,-97.52],["Wichita, KS, USA",37.69,-97.34],["Des Moines, IA, USA",41.59,-93.62],["Little Rock, AR, USA",34.75,-92.29],["Jackson, MS, USA",32.30,-90.18],["Birmingham, AL, USA",33.52,-86.80],["Knoxville, TN, USA",35.96,-83.92],["Burlington, VT, USA",44.48,-73.21],["Portland, ME, USA",43.66,-70.26],["Manchester, NH, USA",42.99,-71.46],["Newark, NJ, USA",40.74,-74.17],["London, UK",51.51,-0.13],["Paris, France",48.85,2.35],["Berlin, Germany",52.52,13.40],["Madrid, Spain",40.42,-3.70],["Rome, Italy",41.90,12.50],["Amsterdam, Netherlands",52.37,4.90],["Vienna, Austria",48.21,16.37],["Zurich, Switzerland",47.37,8.54],["Brussels, Belgium",50.85,4.35],["Lisbon, Portugal",38.72,-9.14],["Dublin, Ireland",53.35,-6.26],["Stockholm, Sweden",59.33,18.07],["Oslo, Norway",59.91,10.75],["Copenhagen, Denmark",55.68,12.57],["Helsinki, Finland",60.17,24.94],["Reykjavik, Iceland",64.15,-21.94],["Athens, Greece",37.98,23.73],["Warsaw, Poland",52.23,21.01],["Prague, Czechia",50.08,14.44],["Budapest, Hungary",47.50,19.04],["Bucharest, Romania",44.43,26.10],["Moscow, Russia",55.76,37.62],["Kyiv, Ukraine",50.45,30.52],["Istanbul, Turkey",41.01,28.98],["Cairo, Egypt",30.04,31.24],["Cape Town, South Africa",-33.92,18.42],["Nairobi, Kenya",-1.29,36.82],["Lagos, Nigeria",6.52,3.38],["Casablanca, Morocco",33.57,-7.59],["Tel Aviv, Israel",32.08,34.78],["Dubai, UAE",25.20,55.27],["Riyadh, Saudi Arabia",24.71,46.68],["Doha, Qatar",25.29,51.53],["New Delhi, India",28.61,77.21],["Mumbai, India",19.08,72.88],["Bangalore, India",12.97,77.59],["Karachi, Pakistan",24.86,67.00],["Dhaka, Bangladesh",23.81,90.41],["Beijing, China",39.90,116.41],["Shanghai, China",31.23,121.47],["Hong Kong",22.32,114.17],["Tokyo, Japan",35.68,139.65],["Osaka, Japan",34.69,135.50],["Seoul, South Korea",37.57,126.98],["Taipei, Taiwan",25.03,121.57],["Manila, Philippines",14.60,120.98],["Bangkok, Thailand",13.76,100.50],["Singapore",1.35,103.82],["Jakarta, Indonesia",-6.21,106.85],["Kuala Lumpur, Malaysia",3.14,101.69],["Sydney, Australia",-33.87,151.21],["Melbourne, Australia",-37.81,144.96],["Auckland, New Zealand",-36.85,174.76],["Toronto, Canada",43.65,-79.38],["Vancouver, Canada",49.28,-123.12],["Montreal, Canada",45.50,-73.57],["Ottawa, Canada",45.42,-75.70],["Mexico City, Mexico",19.43,-99.13],["Havana, Cuba",23.11,-82.37],["Bogota, Colombia",4.71,-74.07],["Lima, Peru",-12.05,-77.04],["Santiago, Chile",-33.45,-70.65],["Buenos Aires, Argentina",-34.60,-58.38],["Sao Paulo, Brazil",-23.55,-46.63],["Rio de Janeiro, Brazil",-22.91,-43.17],["Caracas, Venezuela",10.49,-66.88]];
+
+function setupCityList(){
+  document.getElementById('cityList').innerHTML = CITIES.map(c=>`<option value="${c[0]}">`).join('');
+  const input = document.getElementById('citySearch');
+  input.addEventListener('change', ()=>{
+    const match = CITIES.find(c=>c[0].toLowerCase()===input.value.trim().toLowerCase());
+    const status = document.getElementById('locStatus');
+    if(match){
+      document.getElementById('lat').value = match[1];
+      document.getElementById('lng').value = match[2];
+      status.textContent = 'Location set from city list.';
+      renderAll();
+    } else if(input.value.trim()){
+      status.textContent = `"${input.value.trim()}" isn't in the built-in city list — enter lat/lng directly, or try "Use my location".`;
+    }
+  });
+}
+
+// ---- visibility calculator ----
+function setupCalculator(){
+  const dirWrap = document.getElementById('dirChecks');
+  ['N','NE','E','SE','S','SW','W','NW'].forEach(d=>{
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'display:flex; gap:4px; align-items:center;';
+    lbl.innerHTML = `<input type="checkbox" class="dirBox" value="${d}">${d}`;
+    dirWrap.appendChild(lbl);
+  });
+  const minSel = document.getElementById('calcIllumMin'), maxSel = document.getElementById('calcIllumMax');
+  for(let v=0; v<=100; v+=10){
+    minSel.innerHTML += `<option value="${v}" ${v===0?'selected':''}>${v}%</option>`;
+    maxSel.innerHTML += `<option value="${v}" ${v===100?'selected':''}>${v}%</option>`;
+  }
+  document.getElementById('calcGo').addEventListener('click', runCalculator);
+  document.getElementById('calcTimeMode').addEventListener('change', e=>{
+    document.getElementById('hoursAfterWrap').style.display = e.target.value==='withinHours' ? 'flex' : 'none';
+    document.getElementById('windowWrap').style.display = e.target.value==='window' ? 'flex' : 'none';
+  });
+  document.getElementById('calcFromAnchor').addEventListener('change', e=>{
+    document.getElementById('calcFromTime').style.display = e.target.value==='time' ? 'inline-block' : 'none';
+  });
+  document.getElementById('calcUntilAnchor').addEventListener('change', e=>{
+    document.getElementById('calcUntilTime').style.display = e.target.value==='time' ? 'inline-block' : 'none';
+  });
+  // "Any" direction: while checked, the 8 boxes are disabled (meaning "no restriction")
+  // rather than shown individually checked. Unchecking it clears and enables them for picking specific ones.
+  const dirBoxes = () => Array.from(document.querySelectorAll('.dirBox'));
+  document.getElementById('dirAny').addEventListener('change', e=>{
+    dirBoxes().forEach(b=>{ b.checked=false; b.disabled = e.target.checked; });
+  });
+  dirBoxes().forEach(b=>b.disabled=true); // starts disabled since "Any" starts checked
+}
+
+function runCalculator(){
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lng = parseFloat(document.getElementById('lng').value);
+  const status = document.getElementById('calcStatus');
+  const resultsEl = document.getElementById('calcResults');
+  if(isNaN(lat)||isNaN(lng)){
+    status.textContent = 'Enter a latitude and longitude above first.';
+    resultsEl.innerHTML = '';
+    return;
+  }
+  const minAlt = parseFloat(document.getElementById('calcAlt').value)||0;
+  const illumMin = parseInt(document.getElementById('calcIllumMin').value,10);
+  const illumMax = parseInt(document.getElementById('calcIllumMax').value,10);
+  const minDur = parseInt(document.getElementById('calcDur').value,10)||0;
+  const dayFilter = document.getElementById('calcDay').value;
+  const timeMode = document.getElementById('calcTimeMode').value;
+  const maxHoursAfterSunset = parseFloat(document.getElementById('calcHours').value)||3;
+  const fromAnchor = document.getElementById('calcFromAnchor').value;
+  const untilAnchor = document.getElementById('calcUntilAnchor').value;
+  const fromTimeStr = document.getElementById('calcFromTime').value || '21:00';
+  const untilTimeStr = document.getElementById('calcUntilTime').value || '22:30';
+  const rangeDays = parseInt(document.getElementById('calcRange').value,10);
+  const anyDir = document.getElementById('dirAny').checked;
+  const chosenDirs = new Set(Array.from(document.querySelectorAll('.dirBox:checked')).map(el=>el.value));
+  const useDirFilter = !anyDir && chosenDirs.size>0;
+
+  const startStr = document.getElementById('date').value || new Date().toISOString().slice(0,10);
+  const start = new Date(startStr+'T00:00:00');
+  const results = [];
+
+  for(let i=0;i<rangeDays;i++){
+    const dayStart = new Date(start.getTime()+i*dayMs);
+    const dow = dayStart.getDay();
+    if(dayFilter==='weekend' && !(dow===5||dow===6)) continue;
+    if(dayFilter==='weekday' && (dow===5||dow===6)) continue;
+
+    // scan one full "night": local noon of this day through local noon the next day,
+    // so a night's dark hours are never split across the midnight boundary.
+    const scanStart = new Date(dayStart.getTime()+12*3600000);
+    const fromCutoff = (timeMode==='window' && fromAnchor==='time') ? timeOnNight(dayStart, fromTimeStr) : null;
+    const untilCutoff = (timeMode==='window' && untilAnchor==='time') ? timeOnNight(dayStart, untilTimeStr) : null;
+    let sunsetT=null, duskT=null, dawnT=null, sunriseT=null, prevSunAlt = sunPos(scanStart,lat,lng).altitude;
+    let matchCount=0, firstT=null, lastT=null, peakAlt=-999, peakAz=0, peakIllum=0;
+    for(let m=15;m<=24*60;m+=15){
+      const t = new Date(scanStart.getTime()+m*60000);
+      const sAlt = sunPos(t,lat,lng).altitude;
+      if(prevSunAlt>=0 && sAlt<0 && !sunsetT) sunsetT=t;
+      if(prevSunAlt>=-18 && sAlt<-18 && !duskT) duskT=t;
+      if(sunsetT && prevSunAlt<-18 && sAlt>=-18 && !dawnT) dawnT=t;
+      if(sunsetT && prevSunAlt<0 && sAlt>=0 && !sunriseT) sunriseT=t;
+      prevSunAlt=sAlt;
+
+      const p = moonPos(t,lat,lng);
+      if(p.altitude<minAlt) continue;
+      if(timeMode==='afterSunset' && sAlt>=0) continue;
+      if(timeMode==='afterDark' && sAlt>=-18) continue;
+      if(timeMode==='withinHours'){
+        if(!sunsetT || sAlt>=0) continue;
+        if((t-sunsetT)/3600000 > maxHoursAfterSunset) continue;
+      }
+      if(timeMode==='window'){
+        const fromT = fromAnchor==='time' ? fromCutoff : fromAnchor==='sunset' ? sunsetT : duskT;
+        const untilT = untilAnchor==='time' ? untilCutoff : untilAnchor==='dawn' ? dawnT : sunriseT;
+        if(!fromT || t<fromT) continue; // window hasn't started (or its anchor hasn't happened yet tonight)
+        if(untilT && t>untilT) continue; // past the window's end
+      }
+      if(useDirFilter && !chosenDirs.has(compass8(p.azimuth))) continue;
+      const illumPct = illumination(t).fraction*100;
+      if(illumPct<illumMin || illumPct>illumMax) continue;
+      matchCount++;
+      if(!firstT) firstT=t;
+      lastT=t;
+      if(p.altitude>peakAlt){peakAlt=p.altitude; peakAz=p.azimuth; peakIllum=illumPct;}
+    }
+    const durationMin = matchCount*15;
+    if(matchCount>0 && durationMin>=minDur){
+      results.push({date:dayStart, firstT, lastT, durationMin, peakAlt, peakAz, peakIllum});
+    }
+  }
+
+  if(results.length===0){
+    status.textContent = 'No nights in this window match those criteria — try relaxing altitude, illumination, or direction.';
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  const shown = results.slice(0,60);
+  status.textContent = `${results.length} matching night${results.length===1?'':'s'} in the next ${rangeDays} days` + (results.length>shown.length?` — showing the first ${shown.length}`:'') + '.';
+  resultsEl.innerHTML = `
+    <div class="result-row head"><div>Night of</div><div>Meets criteria</div><div>Peak alt.</div><div>Direction</div><div>Illum.</div></div>
+    ${shown.map(r=>`
+      <div class="result-row">
+        <div class="date" data-label="Night of">${r.date.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</div>
+        <div data-label="Meets criteria">${fmtTime(r.firstT)}–${fmtTime(r.lastT)} <span style="color:var(--ink-dim);">(${r.durationMin}m)</span></div>
+        <div data-label="Peak alt.">${r.peakAlt.toFixed(0)}°</div>
+        <div data-label="Direction">${compass(r.peakAz)}</div>
+        <div data-label="Illum.">${r.peakIllum.toFixed(0)}%</div>
+      </div>`).join('')}
+  `;
+}
+
+function renderAll(){
+  const latStr = document.getElementById('lat').value;
+  const lngStr = document.getElementById('lng').value;
+  const lat = parseFloat(latStr), lng = parseFloat(lngStr);
+  const dateInput = document.getElementById('date').value;
+  if(latStr===''||lngStr===''||isNaN(lat)||isNaN(lng)){
+    document.getElementById('chartSub').textContent = 'Enter a latitude and longitude above (or click "Use my location") to see tonight\u2019s sky.';
+    document.getElementById('chart').innerHTML = '';
+    document.getElementById('stats').innerHTML = '';
+    ['tIllum','tAlt','tTime','tAz'].forEach(id => document.getElementById(id).innerHTML = '');
+    document.getElementById('trendReadout').textContent = '';
+    document.getElementById('trendStatus').textContent = '';
+    return;
+  }
+  renderNight(lat,lng,dateInput);
+  renderTrends(lat,lng,dateInput, parseInt(document.getElementById('range').value,10));
+}
+
+document.getElementById('date').value = new Date().toISOString().slice(0,10);
+document.getElementById('go').addEventListener('click', renderAll);
+document.getElementById('range').addEventListener('change', renderAll);
+document.getElementById('dirTimeInput').addEventListener('change', renderAll);
+document.getElementById('locate').addEventListener('click', ()=>{
+  const status = document.getElementById('locStatus');
+  if(!navigator.geolocation){ status.textContent = 'Geolocation not supported in this browser.'; return; }
+  status.textContent = 'Locating…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    document.getElementById('lat').value = pos.coords.latitude.toFixed(4);
+    document.getElementById('lng').value = pos.coords.longitude.toFixed(4);
+    status.textContent = 'Location set.';
+    renderAll();
+  }, err=>{
+    status.textContent = 'Could not get location (' + err.message + ').';
+  }, {timeout:8000});
+});
+setupCalculator();
+setupCityList();
+window.addEventListener('resize', debounce(renderAll, 250));
+renderAll();
+</script>
+</body>
+</html>
